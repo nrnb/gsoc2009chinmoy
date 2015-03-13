@@ -1,0 +1,187 @@
+<!-- =================================================================== -->
+<!-- Plugin build file     -->
+<!-- =================================================================== -->
+
+<project name="Phylotree" default="jar" basedir=".">
+
+  <!-- =================================================================== -->
+  <!-- Initialization target                                               -->
+  <!-- =================================================================== -->
+  
+    <property name="plugin_name" value="phylotree"/>
+    <property name="plugin_class" value="org.cytoscape.phylotree.PhylotreePlugin"/>  	  	
+    <property name="project.jar" value="${plugin_name}.jar"/>  	
+  	<property name="version" value="0.1"/>
+    <property name="year" value="2009"/>
+  	
+    <echo message="Building plugin ${plugin_name} version ${version}..."/>
+
+    <!-- Define the plugin directories -->
+  	<property name="root.dir" value="."/>
+    <property name="src.dir" value="${root.dir}/src"/>
+    <property name="test.src.dir" value="${root.dir}/tests"/>
+  	<property name="build.dir" value="${root.dir}/build"/>
+    <property name="images.dir" value="${root.dir}/images"/>
+    <property name="manifest.dir" value="${root.dir}/manifest"/>
+    <property name="lib.dir" value="${root.dir}/lib"/>
+
+  	<!-- Define the Cytoscape directories -->
+    <property name="cytoscape.dir" value="c:/Program Files/Cytoscape_v2.6.2"/>
+  	<property name="cytoscape.lib.dir" value="${cytoscape.dir}/lib"/>
+    <property name="cytoscape.plugin.dir" value="${cytoscape.dir}/plugins"/>
+
+    <!-- Inheritable properties -->
+    <property name="debug" value="on"/>
+    <property name="optimize" value="off"/>
+    <property name="deprecation" value="on"/>
+    <property name="nowarn" value="true"/>
+    <property name="fork" value="false"/>
+  	
+    <!-- Check the availability of some files -->  	
+ 	<available file="${cytoscape.dir}/cytoscape.jar" property="cytoscape.present"/> 
+  	<available file="${root.dir}/plugin.props" property="plugin.prop.present"/>
+  	<available file="${images.dir}" property="images.dir.present"/>
+
+	<!-- The unit test reports directory -->
+    <property name="junit.report.dir"    value="${build.dir}/junit-reports"/>
+	
+    <!-- Define the java class path -->
+    <path id="project.class.path">
+      <pathelement location="${cytoscape.dir}/cytoscape.jar"/>
+      <pathelement path="${java.class.path}/"/>
+      <pathelement location="${cytoscape.lib.dir}/forester.jar"/>
+    </path>
+
+	
+    <path id="compile.classpath">
+		<pathelement path="${build.dir}"/>
+    	<fileset dir="${build.dir}">
+       		 	<include name="**/*.class"/>
+		</fileset>
+
+    	<fileset dir="${cytoscape.dir}">
+             <include name="cytoscape.jar"/>
+        </fileset>
+    	<fileset dir="${lib.dir}">
+    		<include name="**/*.jar"/>
+    	</fileset>
+    	<fileset dir="${cytoscape.lib.dir}">
+    		<include name="**/*.jar"/>
+    	</fileset>
+
+  	</path>
+
+
+  <!-- =================================================================== -->
+  <!-- Compiles the project                                           -->
+  <!-- =================================================================== -->
+  <target name="compile">
+
+   <echo message="COMPILE ${plugin_name} ..."/>
+    
+    <mkdir dir="${build.dir}"/>
+    <javac srcdir="${src.dir}"
+           excludes="${excludes}"
+           classpathref="project.class.path"
+           destdir="${build.dir}"
+           debug="${debug}"
+           nowarn="${nowarn}"
+           deprecation="${deprecation}" 
+           optimize="${optimize}"
+           fork="${fork}"/>
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Creates the plugin jar file                                           -->
+  <!-- =================================================================== -->
+  <target name="jar" depends="compile, copy_plugin_prop, copy_images"  >
+	<unjar dest="${build.dir}">
+		<fileset dir="${lib.dir}">
+			<include name="*.jar" />
+		</fileset>
+	</unjar>
+    <jar destfile="${project.jar}">
+      <manifest> <attribute name="Cytoscape-Plugin" value="${plugin_class}"/> </manifest>
+      <fileset dir="${build.dir}" includes="**"/>
+    </jar>
+
+  </target>
+
+  <!-- If plugin.prop exist, copy it to build directory  -->	
+  <target name="copy_plugin_prop" if="plugin.prop.present">
+		<copy todir="${build.dir}/org/cytoscape/phylotree" file="${root.dir}/plugin.props"/>	
+
+  </target>
+
+  <!-- If there are any image files, copy them to build directory  -->	
+  <target name="copy_images" if="images.dir.present">
+		<copy todir="${build.dir}">
+	        <fileset dir="${images.dir}"/> 
+		</copy>
+  </target>
+
+	
+	
+  <!-- ==================== Compile-tests Target ==============================-->
+  <target name="compile-tests" depends="jar"
+        description="Compiles all Java test source files">
+        <javac srcdir="${test.src.dir}"
+		    source="1.5"
+            destdir="${build.dir}"
+            debug="${compile.debug}"
+            deprecation="${compile.deprecation}"
+            optimize="${compile.optimize}">
+        <classpath refid="compile.classpath"/>
+        </javac>
+  </target>
+
+  <!-- ==================== JUnit Test Target =========================== -->
+  <target name="test" description="Runs all JUnit tests" depends="compile-tests">
+    	<echo>
+            **********************************
+            Running all unit tests individally
+            ***********************************
+    	</echo>
+    	<mkdir dir="${junit.report.dir}" />
+    	
+        <junit printsummary="yes" fork="yes" haltonfailure="no">
+        	<classpath refid="compile.classpath"/>
+        	<formatter type="plain" usefile="true"/>
+			<formatter type="xml" usefile="true" />
+			<batchtest fork="yes" 
+			           todir="${junit.report.dir}" 
+				   failureProperty="junit.test.failure">
+				<fileset dir="${build.dir}" 
+				         includes="**/*Test.class" 
+					 excludes="**/AllTests.class" />
+			</batchtest>	        	
+        </junit>
+    	
+		<junitreport todir="${junit.report.dir}">
+			<fileset dir="${junit.report.dir}">
+				<include name="TEST-*.xml" />
+			</fileset>
+			<report format="frames" todir="${junit.report.dir}" />
+		</junitreport>
+
+		<fail message="JUnit Tests failed! Check ${junit.report.dir}/index.html for details." 
+		      if="junit.test.failure" />	    	
+		      
+  </target>
+	
+  <!-- =================================================================== -->
+  <!-- Clean up, get back to original state                                -->
+  <!-- =================================================================== -->
+  <target name="clean">
+  	<delete dir="${build.dir}"/>
+  </target>
+
+  <!-- ==================== Customozed builder target =============================== -->
+  <target name="myPlugin" 
+      description="Customozed plugin builder" depends="jar">
+    	<copy todir="${cytoscape.dir}/plugins" file="${root.dir}/phylotree.jar"/>
+  </target>
+
+</project>
+
+<!-- End of file -->
